@@ -1,24 +1,19 @@
 pipeline {
     agent any
     environment {
-        // Replace with your actual Docker Hub username
-        DOCKER_HUB_USER = 'your-dockerhub-id'
+        // CHANGE THIS to your actual Docker Hub username
+        DOCKER_HUB_USER = 'sushantmn' 
         IMAGE_NAME = 'capstone-app'
     }
     stages {
-        stage('Checkout') {
-            steps {
-                // Pulls code from your GitHub repository
-                checkout scm
-            }
-        }
+        // You can remove the manual 'Checkout' stage because Jenkins
+        // already does this automatically at the start of the pipeline.
+        
         stage('Build & Security Scan') {
             steps {
                 script {
-                    // Build the Docker image locally on your Azure VM
+                    // This command is failing because the CLI is missing
                     sh "docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} ."
-                    
-                    // DevSecOps Gate: Only proceed if no CRITICAL vulnerabilities are found
                     sh "trivy image --severity CRITICAL --exit-code 1 ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
                 }
             }
