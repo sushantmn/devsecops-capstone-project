@@ -30,10 +30,12 @@ pipeline {
 	stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // This uses the manifests in the /k8s directory you created
-                    sh 'kubectl apply -f k8s/deployment.yaml'
-                    sh 'kubectl apply -f k8s/service.yaml'
-                    sh 'kubectl rollout restart deployment/capstone-app'
+                    // Tell kubectl where to find the cluster credentials
+                    withEnv(["KUBECONFIG=/var/jenkins_home/k3s-config"]) {
+                        sh 'kubectl apply -f k8s/deployment.yaml'
+                        sh 'kubectl apply -f k8s/service.yaml'
+                        sh 'kubectl rollout restart deployment/capstone-app'
+                    }
                 }
             }
         }
