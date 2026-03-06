@@ -1,18 +1,15 @@
 pipeline {
     agent any
     environment {
-        // CHANGE THIS to your actual Docker Hub username
+        // Docker Hub username
         DOCKER_HUB_USER = 'sushantnm' 
         IMAGE_NAME = 'capstone-app'
     }
     stages {
-        // You can remove the manual 'Checkout' stage because Jenkins
-        // already does this automatically at the start of the pipeline.
-        
+               
         stage('Build & Security Scan') {
             steps {
                 script {
-                    // This command is failing because the CLI is missing
                     sh "docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} ."
                     sh "trivy image --severity CRITICAL --exit-code 1 ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
                 }
@@ -30,6 +27,18 @@ pipeline {
                     sh "docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
                 }
             }
+	stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // This command applies your deployment and service manifests
+                    sh 'kubectl apply -f k8s/deployment.yaml'
+                    sh 'kubectl apply -f k8s/service.yaml'
+                    
+                    // Forces Kubernetes to pull the latest image you just pushed
+                    sh "kubectl rollout restart deployment/capstone-app"
+                }
+            }
+        }
         }
     }
 }
