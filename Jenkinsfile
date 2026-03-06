@@ -30,11 +30,10 @@ pipeline {
 	stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // We add the specific K3s port (6443) to NO_PROXY
-                    withEnv(["KUBECONFIG=/var/jenkins_home/k3s-config", "NO_PROXY=127.0.0.1,localhost,0.0.0.0"]) {
-                        // We use the --server flag to explicitly bypass any local discovery issues
-                        sh 'kubectl apply -f k8s/deployment.yaml --server=https://127.0.0.1:6443 --insecure-skip-tls-verify'
-                        sh 'kubectl apply -f k8s/service.yaml --server=https://127.0.0.1:6443 --insecure-skip-tls-verify'
+                    // We use the full raw config which now contains all necessary certs
+                    withEnv(["KUBECONFIG=/var/jenkins_home/k3s-config", "NO_PROXY=127.0.0.1,localhost"]) {
+                        sh 'kubectl apply -f k8s/deployment.yaml'
+                        sh 'kubectl apply -f k8s/service.yaml'
                         sh 'kubectl rollout restart deployment/capstone-app'
                     }
                 }
