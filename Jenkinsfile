@@ -27,14 +27,18 @@ pipeline {
                 }
             }
         }
+	
 	stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // We use the full raw config which now contains all necessary certs
-                    withEnv(["KUBECONFIG=/var/jenkins_home/k3s-config", "NO_PROXY=127.0.0.1,localhost"]) {
-                        sh 'kubectl apply -f k8s/deployment.yaml'
-                        sh 'kubectl apply -f k8s/service.yaml'
-                        sh 'kubectl rollout restart deployment/capstone-app'
+                    // Use the verified config file we just tested
+                    withEnv(["KUBECONFIG=/var/jenkins_home/k3s-config"]) {
+                        // Apply the manifests from your k8s directory
+                        sh 'kubectl apply -f k8s/deployment.yaml --insecure-skip-tls-verify'
+                        sh 'kubectl apply -f k8s/service.yaml --insecure-skip-tls-verify'
+                        
+                        // Force an update to use the latest image pushed in the previous stage
+                        sh 'kubectl rollout restart deployment/capstone-app --insecure-skip-tls-verify'
                     }
                 }
             }
