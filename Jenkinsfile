@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         // CHANGE THIS to your actual Docker Hub username
-        DOCKER_HUB_USER = 'sushantmn' 
+        DOCKER_HUB_USER = 'sushantnm' 
         IMAGE_NAME = 'capstone-app'
     }
     stages {
