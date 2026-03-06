@@ -12,24 +12,18 @@ provider "azurerm" {
   features {}
 }
 
-# 2. Variables (Ensure these are in variables.tf or defined here)
-# variable "resource_group_name" { default = "DevSecOps-Capstone-RG" }
-# variable "location"            { default = "southindia" }
-# variable "vm_name"             { default = "Jenkins-Docker-VM" }
-
-# 3. Networking Resources
+# 2. Resource Group
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
 }
 
+# 3. Networking Resources
 resource "azurerm_virtual_network" "vnet" {
   name                = "jenkins-vnet"
   address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-
-  # It ensure the Resource Group is ready first
   depends_on          = [azurerm_resource_group.rg]
 }
 
@@ -44,7 +38,7 @@ resource "azurerm_public_ip" "pip" {
   name                = "jenkins-public-ip"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Static" # Changed to Static for easier Jenkins access
+  allocation_method   = "Static" 
 }
 
 resource "azurerm_network_interface" "nic" {
@@ -60,12 +54,12 @@ resource "azurerm_network_interface" "nic" {
   }
 }
 
-# 4. The Linux VM (Jenkins + Docker Host)
+# 4. The Linux VM
 resource "azurerm_linux_virtual_machine" "vm" {
   name                = var.vm_name
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  size		      = "Standard_D2s_v3" # Changed from B2s
+  size                = "Standard_D2s_v3" 
   admin_username      = "adminuser"
   network_interface_ids = [azurerm_network_interface.nic.id]
 
@@ -87,33 +81,37 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 }
 
-# 5. Network Security Group and SSH Rule
+# 5. Network Security Group (Empty of inline rules to prevent conflicts)
 resource "azurerm_network_security_group" "nsg" {
   name                = "jenkins-nsg"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-
-  security_rule {
-    name                       = "AllowSSH"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
 }
 
-# 6. Associate NSG with Network Interface
+# 6. Associate NSG with NIC
 resource "azurerm_network_interface_security_group_association" "example" {
   network_interface_id      = azurerm_network_interface.nic.id
   network_security_group_id = azurerm_network_security_group.nsg.id
 }
 
+# --- SECURITY RULES (Defined as separate resources) ---
 
-# 7. Allow Jenkins SSH
+# Rule 1: Allow SSH (Port 22)
+resource "azurerm_network_security_rule" "ssh" {
+  name                        = "AllowSSH"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "22"
+  source_address_prefix       = "*"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.rg.name
+  network_security_group_name = azurerm_network_security_group.nsg.name
+}
+
+# Rule 2: Allow Jenkins (Port 8080)
 resource "azurerm_network_security_rule" "jenkins" {
   name                        = "AllowJenkins"
   priority                    = 110
@@ -122,6 +120,36 @@ resource "azurerm_network_security_rule" "jenkins" {
   protocol                    = "Tcp"
   source_port_range           = "*"
   destination_port_range      = "8080"
+  source_address_prefix       = "*"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.rg.name
+  network_security_group_name = azurerm_network_security_group.nsg.name
+}
+
+# Rule 3: Allow Kubernetes Task Board (Port 32560)
+resource "azurerm_network_security_rule" "k8s_nodeport" {
+  name                        = "AllowK8sNodePort"
+  priority                    = 120
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "32560"
+  source_address_prefix       = "*"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.rg.name
+  network_security_group_name = azurerm_network_security_group.nsg.name
+}
+
+# Rule 4: Allow Grafana Dashboard (Port 3000)
+resource "azurerm_network_security_rule" "grafana" {
+  name                        = "AllowGrafana"
+  priority                    = 130
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "3000"
   source_address_prefix       = "*"
   destination_address_prefix  = "*"
   resource_group_name         = azurerm_resource_group.rg.name

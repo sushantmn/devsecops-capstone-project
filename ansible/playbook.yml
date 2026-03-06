@@ -1,0 +1,48 @@
+---
+- name: Configure Jenkins and Docker Server
+  hosts: jenkins_server
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt: update_cache=yes
+
+    - name: Install Docker
+      apt:
+        name: ["docker.io", "docker-compose"]
+        state: present
+
+    - name: Ensure Docker is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add adminuser to docker group
+      user:
+        name: adminuser
+        groups: docker
+        append: yes
+
+    - name: Install Jenkins dependencies (Java)
+      apt:
+        name: openjdk-17-jdk
+        state: present
+
+
+    - name: Run Jenkins in Docker
+      shell: |
+        docker run -d -p 8080:8080 -p 50000:50000 \
+        --name jenkins-server \
+        --restart always \
+        -v jenkins_home:/var/lib/jenkins \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        jenkins/jenkins:lts
+      args:
+        creates: /var/lib/jenkins/secrets/initialAdminPassword
+
+
+    - name: Install Trivy (Security Scanner)
+      shell: |
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        apt update && apt install trivy -y
