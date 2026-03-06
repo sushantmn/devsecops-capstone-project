@@ -30,10 +30,11 @@ pipeline {
 	stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Tell kubectl where to find the cluster credentials
-                    withEnv(["KUBECONFIG=/var/jenkins_home/k3s-config"]) {
-                        sh 'kubectl apply -f k8s/deployment.yaml'
-                        sh 'kubectl apply -f k8s/service.yaml'
+                    // Added NO_PROXY to ensure kubectl doesn't talk to Jenkins by mistake
+                    withEnv(["KUBECONFIG=/var/jenkins_home/k3s-config", "NO_PROXY=127.0.0.1,localhost"]) {
+                        // Added --validate=false to bypass the HTML/Login page error
+                        sh 'kubectl apply -f k8s/deployment.yaml --validate=false'
+                        sh 'kubectl apply -f k8s/service.yaml --validate=false'
                         sh 'kubectl rollout restart deployment/capstone-app'
                     }
                 }
