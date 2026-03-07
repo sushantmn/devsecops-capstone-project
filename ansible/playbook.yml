@@ -64,6 +64,10 @@
           retries: 5
           start_period: 20s
 
+    - name: "Fix Git dubious ownership in Jenkins workspace"
+      command: docker exec -u root {{ jenkins_container_name }} git config --global --add safe.directory /var/jenkins_home/workspace/DevSecOps-Capstone-Pipeline
+      # This allows the Jenkins Git plugin to operate even with the UID mismatch.
+
     - name: "Wait for Jenkins web interface to be ready"
       uri:
         url: "http://localhost:8080/login"
