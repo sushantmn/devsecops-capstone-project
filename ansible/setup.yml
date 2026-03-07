@@ -1,0 +1,37 @@
+---
+- name: Prepare DevSecOps Server
+  hosts: jenkins_server
+  become: yes
+
+  tasks:
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install base packages
+      apt:
+        name: "{{ base_packages }}"
+        state: present
+
+    - name: Install Java
+      apt:
+        name: "{{ java_package }}"
+        state: present
+
+    - name: Install Docker packages
+      apt:
+        name: "{{ docker_packages }}"
+        state: present
+
+    - name: Ensure Docker is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add current user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
