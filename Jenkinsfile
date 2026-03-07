@@ -17,8 +17,9 @@ pipeline {
                         
                         sh "docker build -t ${fullImageName} ."
                         
-                        // Section D: Trivy Security Scan
-                        sh "trivy image --severity CRITICAL --exit-code 1 ${fullImageName}"
+                        // Section D: Trivy Security Scan 
+                        // Updated to run as a container since the binary is not in the Jenkins image
+                        sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity CRITICAL --exit-code 1 ${fullImageName}"
                     }
                 }
             }

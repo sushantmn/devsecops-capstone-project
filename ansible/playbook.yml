@@ -36,14 +36,27 @@
         recurse: yes
       changed_when: false
 
-    - name: "Run Jenkins container (Idempotent: no recreate on second run)"
+    - name: "Automate K3s config deployment for Jenkins"
+      copy:
+        src: "/etc/rancher/k3s/k3s.yaml"
+        dest: "{{ jenkins_volume_path }}/k3s-config"
+        remote_src: yes
+        owner: "1000"
+        group: "1000"
+        mode: '0644'
+
+    - name: "Run Jenkins container (With Docker-out-of-Docker Access)"
       docker_container:
         name: "{{ jenkins_container_name }}"
         image: "{{ jenkins_image }}"
         state: started
         restart_policy: always
+        user: "root"  # Required for permission to access the Docker socket
         ports: "{{ jenkins_ports }}"
-        volumes: "{{ jenkins_volumes }}"
+        volumes:
+          - "{{ jenkins_volume_path }}:/var/jenkins_home"
+          - "/var/run/docker.sock:/var/run/docker.sock" # Allows Jenkins to talk to host Docker
+          - "/usr/bin/docker:/usr/bin/docker"           # Makes Docker command available in Jenkins
         healthcheck:
           test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
           interval: 10s
@@ -84,7 +97,7 @@
           scrape_configs:
             - job_name: 'node'
               static_configs:
-                - targets: ['172.17.0.1:9101'] # Standard Docker Bridge Gateway IP
+                - targets: ['172.17.0.1:9101'] # Internal bridge IP for metrics
         mode: '0644'
       register: prometheus_config
 
@@ -94,7 +107,7 @@
         image: "prom/prometheus:latest"
         state: started
         restart_policy: always
-        recreate: "{{ prometheus_config.changed }}" # Forces refresh if the IP was changed
+        recreate: "{{ prometheus_config.changed }}"
         ports:
           - "9090:9090"
         volumes:
@@ -114,8 +127,8 @@
           datasources:
             - name: Prometheus
               type: prometheus
-              access: browser  # Changed from proxy to browser
-              url: http://20.235.35.205:9090 # Use your Public IP
+              access: browser
+              url: http://20.235.35.205:9090
               isDefault: true
         mode: '0644'
 
@@ -129,4 +142,4 @@
           - "3000:3000"
         volumes:
           - "/etc/grafana/provisioning:/etc/grafana/provisioning"
-          - "grafana_storage:/var/lib/grafana" # Persists your password and dashboards
+          - "grafana_storage:/var/lib/grafana"
