@@ -2,47 +2,131 @@
 - name: Configure Jenkins and Docker Server
   hosts: jenkins_server
   become: yes
-  tasks:
-    - name: Update apt cache
-      apt: update_cache=yes
 
-    - name: Install Docker
+  tasks:
+    - name: "Update apt cache (Idempotent: only updates if older than 1 hour)"
       apt:
-        name: ["docker.io", "docker-compose"]
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: "Install Docker and Java"
+      apt:
+        name: "{{ docker_packages + [java_package] }}"
         state: present
 
-    - name: Ensure Docker is running
+    - name: "Ensure Docker is running"
       service:
         name: docker
         state: started
         enabled: yes
 
-    - name: Add adminuser to docker group
+    - name: "Add adminuser to docker group"
       user:
-        name: adminuser
+        name: "{{ ansible_user }}"
         groups: docker
         append: yes
 
-    - name: Install Jenkins dependencies (Java)
-      apt:
-        name: openjdk-17-jdk
-        state: present
+    - name: "Ensure correct permissions on migrated jenkins_home volume"
+      file:
+        path: "{{ jenkins_volume_path }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: '0755'
+        recurse: yes
+      changed_when: false
 
+    - name: "Run Jenkins container (Idempotent: no recreate on second run)"
+      docker_container:
+        name: "{{ jenkins_container_name }}"
+        image: "{{ jenkins_image }}"
+        state: started
+        restart_policy: always
+        ports: "{{ jenkins_ports }}"
+        volumes: "{{ jenkins_volumes }}"
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+          interval: 10s
+          timeout: 5s
+          retries: 5
+          start_period: 20s
 
-    - name: Run Jenkins in Docker
-      shell: |
-        docker run -d -p 8080:8080 -p 50000:50000 \
-        --name jenkins-server \
-        --restart always \
-        -v jenkins_home:/var/lib/jenkins \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        jenkins/jenkins:lts
-      args:
-        creates: /var/lib/jenkins/secrets/initialAdminPassword
+    - name: "Wait for Jenkins web interface to be ready"
+      uri:
+        url: "http://localhost:8080/login"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 10
+      delay: 5
 
+    - name: "Run Node Exporter (For Hardware Metrics)"
+      docker_container:
+        name: "node-exporter"
+        image: "quay.io/prometheus/node-exporter:latest"
+        state: started
+        restart_policy: always
+        ports:
+          - "9101:9100"  # Avoids the port 9100 conflict found on the VM
 
-    - name: Install Trivy (Security Scanner)
-      shell: |
-        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-        apt update && apt install trivy -y
+    - name: "Create Prometheus configuration directory"
+      file:
+        path: "/etc/prometheus"
+        state: directory
+        mode: '0755'
+
+    - name: "Configure Prometheus Scrape Targets"
+      copy:
+        dest: "/etc/prometheus/prometheus.yml"
+        content: |
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: 'node'
+              static_configs:
+                - targets: ['172.17.0.1:9101'] # Standard Docker Bridge Gateway IP
+        mode: '0644'
+      register: prometheus_config
+
+    - name: "Run Prometheus container"
+      docker_container:
+        name: "prometheus"
+        image: "prom/prometheus:latest"
+        state: started
+        restart_policy: always
+        recreate: "{{ prometheus_config.changed }}" # Forces refresh if the IP was changed
+        ports:
+          - "9090:9090"
+        volumes:
+          - "/etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml"
+
+    - name: "Create Grafana provisioning directory"
+      file:
+        path: "/etc/grafana/provisioning/datasources"
+        state: directory
+        mode: '0755'
+
+    - name: "Configure Prometheus as a data source for Grafana"
+      copy:
+        dest: "/etc/grafana/provisioning/datasources/prometheus.yml"
+        content: |
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: browser  # Changed from proxy to browser
+              url: http://20.235.35.205:9090 # Use your Public IP
+              isDefault: true
+        mode: '0644'
+
+    - name: "Run Grafana container (Idempotent with Provisioning)"
+      docker_container:
+        name: "grafana"
+        image: "grafana/grafana:latest"
+        state: started
+        restart_policy: always
+        ports:
+          - "3000:3000"
+        volumes:
+          - "/etc/grafana/provisioning:/etc/grafana/provisioning"
+          - "grafana_storage:/var/lib/grafana" # Persists your password and dashboards

@@ -1,0 +1,22 @@
+---
+- name: Backup Jenkins Data to Local Machine
+  hosts: jenkins_server
+  become: yes
+
+  tasks:
+    - name: Compress jenkins_home volume data
+      archive:
+        path: "/var/lib/docker/volumes/jenkins_home/_data"
+        dest: "/tmp/jenkins_backup.tar.gz"
+        format: gz
+
+    - name: Fetch the backup to local Lenovo-Ideapad
+      fetch:
+        src: "/tmp/jenkins_backup.tar.gz"
+        dest: "./backups/"
+        flat: yes
+
+    - name: Remove backup file from server to save space
+      file:
+        path: "/tmp/jenkins_backup.tar.gz"
+        state: absent

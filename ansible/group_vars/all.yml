@@ -1,0 +1,24 @@
+base_packages:
+  - curl
+  - gnupg
+  - ca-certificates
+  - apt-transport-https
+
+docker_packages:
+  - docker.io
+  - docker-compose
+
+java_package: openjdk-17-jdk
+
+jenkins_container_name: jenkins-server
+jenkins_image: jenkins/jenkins:lts
+
+jenkins_ports:
+  - "8080:8080"
+  - "50000:50000"
+
+jenkins_volume_path: "/var/lib/docker/volumes/jenkins_home/_data"
+
+jenkins_volumes:
+  - "jenkins_home:/var/jenkins_home"
+  - "/var/run/docker.sock:/var/run/docker.sock"

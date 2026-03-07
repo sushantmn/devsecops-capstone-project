@@ -155,3 +155,18 @@ resource "azurerm_network_security_rule" "grafana" {
   resource_group_name         = azurerm_resource_group.rg.name
   network_security_group_name = azurerm_network_security_group.nsg.name
 }
+
+# Rule 5: Allow Prometheus (Port 9090)
+resource "azurerm_network_security_rule" "prometheus" {
+  name                        = "AllowPrometheus"
+  priority                    = 140
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "9090"
+  source_address_prefix       = "*"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.rg.name
+  network_security_group_name = azurerm_network_security_group.nsg.name
+}
