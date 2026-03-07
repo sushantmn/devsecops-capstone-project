@@ -26,24 +26,24 @@
         groups: docker
         append: yes
 
-    - name: "Ensure correct permissions on migrated jenkins_home volume"
+    - name: "Ensure Docker volume directory has correct ownership for Jenkins"
       file:
-        path: "{{ jenkins_volume_path }}"
+        path: "/var/lib/docker/volumes/jenkins_home/_data"
         state: directory
         owner: "1000"
         group: "1000"
-        mode: '0755'
         recurse: yes
-      changed_when: false
+      # Fixes 'fatal: not in a git directory' by allowing Jenkins to own workspace metadata.
 
     - name: "Automate K3s config deployment for Jenkins"
       copy:
         src: "/etc/rancher/k3s/k3s.yaml"
-        dest: "{{ jenkins_volume_path }}/k3s-config"
+        dest: "/var/lib/docker/volumes/jenkins_home/_data/k3s-config"
         remote_src: yes
         owner: "1000"
         group: "1000"
         mode: '0644'
+      # Ensures Jenkins has credentials to deploy to the K8s cluster.
 
     - name: "Run Jenkins container (With Docker-out-of-Docker Access)"
       docker_container:
@@ -51,12 +51,12 @@
         image: "{{ jenkins_image }}"
         state: started
         restart_policy: always
-        user: "root"  # Required for permission to access the Docker socket
+        user: "root"  # Required for permission to access the host Docker socket
         ports: "{{ jenkins_ports }}"
         volumes:
-          - "{{ jenkins_volume_path }}:/var/jenkins_home"
+          - "jenkins_home:/var/jenkins_home"
           - "/var/run/docker.sock:/var/run/docker.sock" # Allows Jenkins to talk to host Docker
-          - "/usr/bin/docker:/usr/bin/docker"           # Makes Docker command available in Jenkins
+          - "/usr/bin/docker:/usr/bin/docker"           # Makes Docker command available inside Jenkins
         healthcheck:
           test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
           interval: 10s
@@ -80,7 +80,7 @@
         state: started
         restart_policy: always
         ports:
-          - "9101:9100"  # Avoids the port 9100 conflict found on the VM
+          - "9101:9100"  # Avoids the port 9100 conflict found on the Azure VM
 
     - name: "Create Prometheus configuration directory"
       file:
@@ -128,7 +128,7 @@
             - name: Prometheus
               type: prometheus
               access: browser
-              url: http://20.235.35.205:9090
+              url: http://20.235.35.205:9090 # Your Public IP
               isDefault: true
         mode: '0644'
 
