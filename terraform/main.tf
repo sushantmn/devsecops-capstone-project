@@ -38,7 +38,7 @@ resource "azurerm_public_ip" "pip" {
   name                = "jenkins-public-ip"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Static" 
+  allocation_method   = "Static"
 }
 
 resource "azurerm_network_interface" "nic" {
@@ -56,11 +56,11 @@ resource "azurerm_network_interface" "nic" {
 
 # 4. The Linux VM
 resource "azurerm_linux_virtual_machine" "vm" {
-  name                = var.vm_name
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  size                = "Standard_D2s_v3" 
-  admin_username      = "adminuser"
+  name                  = var.vm_name
+  resource_group_name   = azurerm_resource_group.rg.name
+  location              = azurerm_resource_group.rg.location
+  size                  = "Standard_D2s_v3"
+  admin_username        = "adminuser"
   network_interface_ids = [azurerm_network_interface.nic.id]
 
   admin_ssh_key {
