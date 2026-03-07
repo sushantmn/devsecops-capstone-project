@@ -1,47 +1,66 @@
 pipeline {
     agent any
     environment {
-        DOCKER_HUB_USER = 'sushantnm' 
+        // We pull these from the 'docker-hub-creds' defined in Jenkins
         IMAGE_NAME = 'capstone-app'
     }
     stages {
-        
         stage('Build & Security Scan') {
             steps {
                 script {
-                    sh "docker build -t ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} ."
-                    sh "trivy image --severity CRITICAL --exit-code 1 ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                    // Pulling the username from credentials so it's not hardcoded in the script
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', 
+                                     passwordVariable: 'PASS', 
+                                     usernameVariable: 'USER')]) {
+                        
+                        def fullImageName = "${USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                        
+                        sh "docker build -t ${fullImageName} ."
+                        
+                        // Section D: Trivy Security Scan
+                        sh "trivy image --severity CRITICAL --exit-code 1 ${fullImageName}"
+                    }
                 }
             }
         }
+
         stage('Push to Docker Hub') {
             steps {
-                // Securely use the token you saved as 'docker-hub-creds'
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', 
                                  passwordVariable: 'DOCKER_HUB_PASSWORD', 
                                  usernameVariable: 'DOCKER_HUB_USERNAME')]) {
+                    
                     sh 'echo $DOCKER_HUB_PASSWORD | docker login -u $DOCKER_HUB_USERNAME --password-stdin'
-                    sh "docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
-                    sh "docker tag ${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
-                    sh "docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
+                    
+                    // Pushing the specific Build Version
+                    sh "docker push ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                    
+                    // Pushing the 'latest' tag for production
+                    sh "docker tag ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:${BUILD_NUMBER} ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:latest"
+                    sh "docker push ${DOCKER_HUB_USERNAME}/${IMAGE_NAME}:latest"
                 }
             }
         }
 	
-	stage('Deploy to Kubernetes') {
+        stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Use the verified config file we just tested
+                    // Section G: Kubernetes Deployment
                     withEnv(["KUBECONFIG=/var/jenkins_home/k3s-config"]) {
-                        // Apply the manifests from your k8s directory
                         sh 'kubectl apply -f k8s/deployment.yaml --insecure-skip-tls-verify'
                         sh 'kubectl apply -f k8s/service.yaml --insecure-skip-tls-verify'
                         
-                        // Force an update to use the latest image pushed in the previous stage
-                        sh 'kubectl rollout restart deployment/capstone-app --insecure-skip-tls-verify'
+                        // Forces K8s to pull the fresh 'latest' image we just pushed
+                        sh "kubectl rollout restart deployment/${IMAGE_NAME} --insecure-skip-tls-verify"
                     }
                 }
             }
+        }
+    }
+    post {
+        always {
+            // Clean up the local images to save space on your Azure VM
+            sh 'docker logout'
         }
     }
 }
