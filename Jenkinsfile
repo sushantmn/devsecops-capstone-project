@@ -41,16 +41,20 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
+                    // Absolute host path to the volume data
                     def HOST_VOLUME_PATH = "/var/lib/docker/volumes/jenkins_home/_data"
                     def HOST_WORKSPACE = "${HOST_VOLUME_PATH}/workspace/DevSecOps-Capstone-Pipeline"
                     def HOST_KUBECONFIG = "${HOST_VOLUME_PATH}/k3s-config"
                     
-                    // We use the Docker Bridge IP (172.17.0.1) so the container can reach the host's K3s API
-                    def kubectlCmd = "docker run --rm -v ${HOST_KUBECONFIG}:/root/.kube/config -v ${HOST_WORKSPACE}:/apps -w /apps bitnami/kubectl:latest --server=https://172.17.0.1:6443 --insecure-skip-tls-verify"
+                    // We mount the config directly to /.kube/config which is the default for this image
+                    // We also pass the --server flag to ensure it hits the host's K3s API [cite: 2026-03-08]
+                    def kubectlCmd = "docker run --rm -v ${HOST_KUBECONFIG}:/.kube/config -v ${HOST_WORKSPACE}:/apps -w /apps bitnami/kubectl:latest --server=https://172.17.0.1:6443 --insecure-skip-tls-verify"
                     
                     sh "${kubectlCmd} apply -f k8s/deployment.yaml"
                     sh "${kubectlCmd} apply -f k8s/service.yaml"
-                    sh "${kubectlCmd} rollout restart deployment/${IMAGE_NAME}"
+                    
+                    // Verifying the rollout status to ensure the pods are healthy [cite: 2026-03-08]
+                    sh "${kubectlCmd} rollout status deployment/capstone-app"
                 }
             }
         }
