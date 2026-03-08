@@ -41,16 +41,12 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Section G: Kubernetes Deployment
-                    // Using a dockerized kubectl container to avoid 'kubectl not found' on the Jenkins agent [cite: 2026-03-07].
-                    // We mount the k3s-config into the container's default kubeconfig path.
                     withEnv(["KUBECONFIG_PATH=/var/jenkins_home/k3s-config"]) {
-                        def kubectlCmd = "docker run --rm -v ${KUBECONFIG_PATH}:/root/.kube/config -v \$(pwd):/apps -w /apps bitnami/kubectl:latest"
+                        // Using ${WORKSPACE} ensures the mount points to the exact checkout folder
+                        def kubectlCmd = "docker run --rm -v ${KUBECONFIG_PATH}:/root/.kube/config -v ${WORKSPACE}:/apps -w /apps bitnami/kubectl:latest"
                         
                         sh "${kubectlCmd} apply -f k8s/deployment.yaml --insecure-skip-tls-verify"
                         sh "${kubectlCmd} apply -f k8s/service.yaml --insecure-skip-tls-verify"
-
-                        // Forces K8s to pull the fresh 'latest' image
                         sh "${kubectlCmd} rollout restart deployment/${IMAGE_NAME} --insecure-skip-tls-verify"
                     }
                 }
