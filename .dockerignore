@@ -1,0 +1,7 @@
+.git
+.gitignore
+Jenkinsfile
+Dockerfile
+README.md
+node_modules
+tests

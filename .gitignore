@@ -1,5 +1,61 @@
+# Git
+.git
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables (secrets)
+.env
+.env.*
+
+# Node modules (if using Node)
+node_modules/
+
+# Python cache (if using Python)
+__pycache__/
+*.pyc
+
+# Build files
+dist/
+build/
+
+# Docker
+docker-compose.override.yml
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.swp
+
+# Terraform working directory
 .terraform/
+
+# Terraform state files
 *.tfstate
-*.tfstate.backup
+*.tfstate.*
+
+# Terraform crash logs
+crash.log
+
+# Terraform variable files (may contain secrets)
+*.tfvars
+*.tfvars.json
+
+# Terraform override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform lock file (optional depending on policy)
 .terraform.lock.hcl
-backups/
+
+# Backup files
+backup/

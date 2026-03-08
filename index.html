@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Capstone Task Board</title>
+    <title>DevSecOps Pipeline Task Board</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; padding: 50px; }
         .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; }
@@ -17,15 +17,17 @@
 </head>
 <body>
     <div class="container">
-        <h2>✅ Capstone Tasks</h2>
+        <h2>✅ DevSecOps Pipeline Tasks</h2>
         <div class="input-group">
             <input type="text" id="taskInput" placeholder="Add a new milestone...">
             <button onclick="addTask()">Add</button>
         </div>
         <ul id="taskList">
             <li>Secure Terraform IaC 🔒</li>
-            <li>Automated Jenkins Pipeline ⚙️</li>
-            <li>K8s Cluster Deployment 🚀</li>
+            <li>Automated Jenkins CI/CD Pipeline ⚙️</li>
+            <li>Docker Image Build 📀</li>
+            <li>Kubernetes (K8s Cluster) Deployment 🚀</li>
+            <li>Trivy Security Scan 🪪</li>
         </ul>
     </div>
     <script>
