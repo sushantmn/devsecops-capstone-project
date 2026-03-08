@@ -59,5 +59,4 @@ override.tf.json
 
 # Backup files
 backup/
-backups/
-*.tar.gz
+backups/*.tar.gz
