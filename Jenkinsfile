@@ -41,12 +41,10 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Use the HOST path so the Docker daemon can find the files
-                    def HOST_WORKSPACE = "/home/adminuser/jenkins_home/workspace/DevSecOps-Capstone-Pipeline"
                     def HOST_KUBECONFIG = "/home/adminuser/jenkins_home/k3s-config"
-                    
-                    def kubectlCmd = "docker run --rm -v ${HOST_KUBECONFIG}:/root/.kube/config -v ${HOST_WORKSPACE}:/apps -w /apps bitnami/kubectl:latest"
-                    
+
+                    def kubectlCmd = "docker run --rm -v ${HOST_KUBECONFIG}:/root/.kube/config -v ${WORKSPACE}:/apps -w /apps bitnami/kubectl:latest"
+
                     sh "${kubectlCmd} apply -f k8s/deployment.yaml --insecure-skip-tls-verify"
                     sh "${kubectlCmd} apply -f k8s/service.yaml --insecure-skip-tls-verify"
                     sh "${kubectlCmd} rollout restart deployment/${IMAGE_NAME} --insecure-skip-tls-verify"
