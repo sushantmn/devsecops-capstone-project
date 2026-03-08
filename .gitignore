@@ -58,5 +58,5 @@ override.tf.json
 .terraform.lock.hcl
 
 # Backup files
-backup/
+backups/
 backups/*.tar.gz
