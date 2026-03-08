@@ -41,17 +41,16 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // This is the absolute path on the Azure VM HOST where the Docker volume is stored
                     def HOST_VOLUME_PATH = "/var/lib/docker/volumes/jenkins_home/_data"
                     def HOST_WORKSPACE = "${HOST_VOLUME_PATH}/workspace/DevSecOps-Capstone-Pipeline"
                     def HOST_KUBECONFIG = "${HOST_VOLUME_PATH}/k3s-config"
                     
-                    // Mounting the HOST paths into the kubectl container so it can find your YAMLs [cite: 2026-03-08]
-                    def kubectlCmd = "docker run --rm -v ${HOST_KUBECONFIG}:/root/.kube/config -v ${HOST_WORKSPACE}:/apps -w /apps bitnami/kubectl:latest"
+                    // We use the Docker Bridge IP (172.17.0.1) so the container can reach the host's K3s API
+                    def kubectlCmd = "docker run --rm -v ${HOST_KUBECONFIG}:/root/.kube/config -v ${HOST_WORKSPACE}:/apps -w /apps bitnami/kubectl:latest --server=https://172.17.0.1:6443 --insecure-skip-tls-verify"
                     
-                    sh "${kubectlCmd} apply -f k8s/deployment.yaml --insecure-skip-tls-verify"
-                    sh "${kubectlCmd} apply -f k8s/service.yaml --insecure-skip-tls-verify"
-                    sh "${kubectlCmd} rollout restart deployment/${IMAGE_NAME} --insecure-skip-tls-verify"
+                    sh "${kubectlCmd} apply -f k8s/deployment.yaml"
+                    sh "${kubectlCmd} apply -f k8s/service.yaml"
+                    sh "${kubectlCmd} rollout restart deployment/${IMAGE_NAME}"
                 }
             }
         }
